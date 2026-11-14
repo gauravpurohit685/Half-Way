@@ -88,29 +88,54 @@ sequenceDiagram
 
 ## 4. Latency Lab & Measurement Engine
 
-### 4.1 Four-Hop Anatomy
-- **$T_0$ (Origin Swap):** Event block timestamp on origin chain.
-- **$T_1$ (Reactive Processing):** Block timestamp of `react()` on Lasna.
-- **$T_2$ (Callback Execution):** Block timestamp of callback execution on destination chain.
-- **$T_3$ (Gap Closed):** Timestamp of pool convergence verification.
+### 4.1 Honest Metric Definitions
+Our liquidity pools are dedicated testnet pools with no external competing arbitrageurs. Consequently, a price dislocation does **not** naturally decay by itself. We explicitly do **not** claim an organic "natural gap half-life". Instead, all latency metrics are split into strictly **MEASURED** on-chain/observer hops and a clearly labeled **SIMULATED** competitive latency budget model.
 
-### 4.2 Dual-Source Time Reporting
-- **On-chain Header Timestamps:** Provable, consensus-stamped EVM block timestamps.
-- **Off-chain Observer Timestamps:** High-resolution wall-clock timestamps recorded by the local daemon indexer.
+### 4.2 Measured Hops Anatomy
+- **$T_0$ (Origin Swap Inclusion):** Block timestamp of the shock swap event included on origin chain (Base Sepolia or Unichain Sepolia).
+- **$T_1$ (Reactive Processing):** Block timestamp of the reactive transaction executing `react()` on Reactive Lasna (Chain ID `5318007`).
+- **$T_2$ (Callback Execution):** Block timestamp of the callback transaction calling `executeCallback()` on destination chain.
+- **$T_3$ (Gap Closed):** The first moment the normalized cross-chain price gap falls to or below the strategy threshold ($G \le \text{threshold}$), calculated directly from pool reserves after the last leg completes.
 
-### 4.3 Gap Half-Life Formula
-Given initial dislocation $\Delta P_0$ and subsequent observations $\Delta P(t)$, the half-life $\tau_{1/2}$ is computed as:
-$$\Delta P(t) = \Delta P_0 \cdot e^{-\lambda t} \implies \tau_{1/2} = \frac{\ln(2)}{\lambda}$$
+### 4.3 Measured Closure Metrics
+- **Half-Closure Time ($T_{1/2}$ - Measured):** Real elapsed time from shock swap inclusion ($T_0$) until the normalized price gap first falls to 50% of its initial post-shock magnitude ($G(t) \le 0.5 \cdot G_0$).
+- **Total Closure Time ($T_{\text{close}}$ - Measured):** Real elapsed time from $T_0$ until the gap is at or below threshold ($G(t) \le \text{threshold}$).
+- Both metrics are calculated strictly from verifiable on-chain `Sync`/`Swap` events and consensus block timestamps, accompanied by local observer wall-clock timestamps.
+
+### 4.4 Competitive Latency Budget Model (SIMULATED)
+The Latency Budget is a clearly labeled **mathematical simulation model**, not a physical measurement:
+- **Model Formulation:** Given an assumed competitor reaction half-life $h$ (user-configurable assumption, defaulted to an explicit baseline, e.g., $h = 5.0\text{s}$):
+  $$\text{Remaining Opportunity Share} = \left(\frac{1}{2}\right)^{\frac{L}{h}}$$
+  $$\text{Opportunity Captured} = \text{Initial Gap} \cdot \left(\frac{1}{2}\right)^{\frac{L}{h}}$$
+- **Presets Available:**
+  - $L = \text{Measured } p50$ (from live on-chain runs)
+  - $L = 7.0\text{s}$ (Legacy relayer/polling baseline, documented figure, not measured)
+  - $L = \text{Custom user input}$
+- **User Presentation:** "At $h = X\text{s}$ (assumed competitor half-life), our loop of $Y\text{s}$ captures $Z\%$ of the theoretical maximum." Every presentation must clearly bear the `[SIMULATION MODEL]` label.
+
+### 4.5 Headline Statistics & Filtering Rules
+- Only **COMPLETE** loops ($T_0 \to T_1 \to T_2 \to T_3$) are included in aggregate headline metrics (p50, p90, max).
+- Incomplete, skipped, or failed executions are logged with explicit reason codes (`DEADLINE_EXPIRED`, `SLIPPAGE_EXCEEDED`, `BELOW_HURDLE`, `RELAYER_PENDING`) and excluded from headline latency distributions.
+- Every report details sample size $N$, active date range, and exclusions breakdown.
+- Dual-source timestamps: Every record explicitly labels whether a timestamp originates from consensus block headers (`blockTime`) or the synchronized daemon observer (`observedAt`).
 
 ---
 
 ## 5. Indexer & API Architecture
 
-- **Stack:** Lightweight, high-throughput TypeScript indexer backed by SQLite.
-- **RPC Hygiene:** Sane polling (2s intervals on L2s, 1s on Lasna), fallback public RPCs, exponential backoff to protect Alchemy free-tier quotas.
-- **Data Models:**
-  - `Opportunity`: `id`, `originChainId`, `destChainId`, `initialGapBps`, `status`, `t0`, `t1`, `t2`, `t3`, `reactionLatencyMs`.
-  - `ExecutionLeg`: `opportunityId`, `chainId`, `txHash`, `pool`, `tokenIn`, `tokenOut`, `amountIn`, `amountOut`, `gasSpent`.
+### 5.1 Architecture Decision: viem + SQLite vs Ponder
+We evaluated Ponder versus a dedicated TypeScript service with `viem` and `better-sqlite3`:
+- **Justification for `viem` + SQLite:**
+  1. **CometBFT RPC Compatibility:** Reactive Lasna operates a custom CometBFT consensus engine where `eth_getLogs` and block event structures require specialized polling intervals and log filter semantics that fail in Ponder's standard EVM multi-chain pipeline.
+  2. **Three-Chain Dynamic Correlation:** The indexer must correlate events across Base Sepolia, Unichain Sepolia, and Reactive Lasna in real time, joining them by deterministic `opportunityId`.
+  3. **RPC Rate-Limit Protection:** Custom viem clients allow granular backoff, caching, and automatic fallback from Alchemy to public RPCs without tripping free-tier rate limits.
+  4. **Portability:** `better-sqlite3` provides fast, file-based ACID storage for development and local testing, while remaining 100% schema-compatible with Postgres for production deployment.
+
+### 5.2 Indexed Entities & Schema
+- **`pools`:** Contract address, chain ID, token0, token1, reserve0, reserve1, price, last block, last updated timestamp.
+- **`opportunities`:** Unique `opportunityId`, origin chain, destination chain, origin tx, lasna tx, dest tx, $T_0, T_1, T_2, T_3$, raw spread bps, captured spread, status (`detected`, `executed`, `skipped`, `failed`), leg amounts, realized PnL.
+- **`vault_snapshots`:** Executor address, chain ID, total shares, reserve0, reserve1, paused status, consecutive failures, timestamp.
+- **`system_health`:** Lasna contract lREACT balance, RPC latency per chain, observer clock drift offset.
 
 ---
 

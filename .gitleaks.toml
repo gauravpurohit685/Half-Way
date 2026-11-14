@@ -1,0 +1,5 @@
+[allowlist]
+description = "Global allowlist for public contract deployments"
+paths = [
+  '''deployments/.*\.json''',
+]

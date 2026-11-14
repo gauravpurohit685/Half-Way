@@ -1,8 +1,10 @@
 {
   "chainId": 1301,
   "name": "Unichain Sepolia",
+  "startBlock": 67795832,
   "contracts": {
-    "MockERC20": "0x61a66307fa18203110f73745628252592d975c9f",
+    "token0": "0x61a66307fa18203110f73745628252592d975c9f",
+    "token1": "0x644b88b9081968d5f72f02f467d4d7d22a5d44d5",
     "HalfPair": "0x3f6bfb643f9d4b2a03062333344abd80644d33ae",
     "HalfwayExecutor": "0x47489fba9d8da11c189ec8b8bee0839da3bb6ba5"
   }

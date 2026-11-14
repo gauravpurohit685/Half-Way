@@ -1,8 +1,10 @@
 {
   "chainId": 84532,
   "name": "Base Sepolia",
+  "startBlock": 58631867,
   "contracts": {
-    "MockERC20": "0x47489fba9d8da11c189ec8b8bee0839da3bb6ba5",
+    "token0": "0x3f6bfb643f9d4b2a03062333344abd80644d33ae",
+    "token1": "0x47489fba9d8da11c189ec8b8bee0839da3bb6ba5",
     "HalfPair": "0x781264ed18eb99763ec0a5be964fafcfb86e9017",
     "HalfwayExecutor": "0x0880e110103156af8c9df5a2e929eb96cd7a1d74"
   }

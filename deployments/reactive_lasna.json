@@ -1,6 +1,7 @@
 {
   "chainId": 5318007,
   "name": "Reactive Lasna",
+  "startBlock": 8316383,
   "contracts": {
     "HalfwayReactive": "0x61a66307fa18203110f73745628252592d975c9f"
   },

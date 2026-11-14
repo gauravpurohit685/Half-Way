@@ -5,28 +5,30 @@ description: Protocols and methodologies for measuring hop-by-hop latency and ga
 
 # Latency Measurement Skill
 
-## Hop Anatomy
+## 1. Ground Rules & Honest Definitions
+1. **No Organic Decay**: Our liquidity pools on Base Sepolia and Unichain Sepolia are isolated test pools with no external competing arbitrageurs. A price gap never decays on its own. We explicitly do **not** claim an organic "natural gap half-life".
+2. **Measured vs Simulated**: All headline metrics ($T_0 \to T_1 \to T_2 \to T_3$, $T_{1/2}$, $T_{\text{close}}$) are strictly measured. Counterfactual loss comparisons are strictly labeled as a **SIMULATED** latency budget model.
+
+## 2. Hop Anatomy
 Every cross-chain loop measures four distinct hops:
-1. **Hop 1: Origin Swap (T0)**: Inclusion of the initial price-shocking swap on Pool A or B.
-   - Captured: `block.timestamp` and block number on origin chain.
-2. **Hop 2: Reactive Reaction (T1)**: Inclusion of the reactive reaction transaction on Reactive Lasna.
-   - Captured: `block.timestamp` and tx hash on Lasna.
-3. **Hop 3: Destination Callback Execution (T2)**: Inclusion of the callback trade transaction on the destination chain.
-   - Captured: `block.timestamp` and tx hash on destination chain.
-4. **Hop 4: Gap Closed (T3)**: The moment both pools' prices reconverge within user threshold.
-   - Captured: Final pool state timestamp.
+1. **Hop 1: Origin Swap ($T_0$)**: Inclusion of the initial price-shocking swap on Pool A or B.
+   - Captured: `block.timestamp`, block number, and synchronized observer `observedAt` in ms.
+2. **Hop 2: Reactive Reaction ($T_1$)**: Inclusion of the reactive reaction transaction on Reactive Lasna.
+   - Captured: `block.timestamp`, Lasna block number, tx hash, and observer `observedAt` in ms.
+3. **Hop 3: Destination Callback Execution ($T_2$)**: Inclusion of the callback trade transaction on destination chain.
+   - Captured: `block.timestamp`, destination block number, tx hash, and observer `observedAt` in ms.
+4. **Hop 4: Gap Closed ($T_3$)**: The moment normalized price gap between both pools falls to or below threshold ($G \le \text{threshold}$).
+   - Captured: Final pool state timestamp and observer `observedAt` in ms.
 
-## Dual Timestamping
-Because L2 block timestamps may have coarse granularity (e.g. 1s resolution despite 200ms block intervals), Halfway records:
-- **On-chain Header Timestamps**: Formally provable, consensus-stamped.
-- **Off-chain Observer Wall-Clock**: Millisecond-resolution reception time recorded by the indexer daemon.
-Both are clearly labelled in the UI and exports.
+## 3. Measured Closure Metrics
+- **Half-Closure Time ($T_{1/2}$ - Measured)**: Real elapsed time from shock swap inclusion ($T_0$) until the normalized price gap first falls to 50% of its initial post-shock magnitude ($G(t) \le 0.5 \cdot G_0$).
+- **Total Closure Time ($T_{\text{close}}$ - Measured)**: Real elapsed time from $T_0$ until the gap is at or below threshold ($G(t) \le \text{threshold}$).
 
-## Metric Calculation
-- **Reaction Latency**: $T_2 - T_0$ (Origin swap to destination callback execution).
-- **Reactive Processing Time**: $T_1 - T_0$ (Origin event to Lasna reaction block).
-- **Callback Relay Time**: $T_2 - T_1$ (Lasna callback request to destination confirmation).
-- **Gap Half-Life**: Time taken for the initial price dislocation $(\Delta P_0)$ to halve:
-  $$\tau_{1/2} = \frac{\ln(2)}{\lambda}$$
-  fitted from post-shock price observations.
-- **Loss Under Slower Latency**: Computed counterfactual profit erosion comparing actual execution time against simulated legacy latency (e.g. 7.0s baseline).
+## 4. Competitive Latency Budget Model (SIMULATED)
+$$\text{Remaining Opportunity Share} = \left(\frac{1}{2}\right)^{\frac{L}{h}}$$
+Where $h$ is assumed competitor half-life (default: 5.0s), and $L$ is evaluated latency (e.g., measured p50 vs legacy 7.0s baseline). Always displayed with `[SIMULATION MODEL]` label.
+
+## 5. Headline Aggregation Standards
+- Only **COMPLETE** loops ($T_0 \to T_1 \to T_2 \to T_3$) are counted in aggregate headline statistics (p50, p90, max).
+- Incomplete, skipped, or failed executions are logged with explicit reason codes (`DEADLINE_EXPIRED`, `SLIPPAGE_EXCEEDED`, `BELOW_HURDLE`, `RELAYER_PENDING`) and reported separately in exclusions breakdown.
+- Dual-timestamp labeling: Every timestamp must be explicitly labeled as consensus block time or calibrated observer time.
