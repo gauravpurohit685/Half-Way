@@ -41,6 +41,17 @@
   3. **Bounded Admin Parameters:** Admin setters strictly enforce hard bounds (e.g., `maxSlippageBps <= 500` [5.0%], `maxConsecutiveFailures <= 50`).
   4. **Two-Step Ownership:** Implements OpenZeppelin `Ownable2Step` to prevent accidental transfer of admin authority to invalid addresses.
 
+### 1.6 Staleness Setting (86400s) & Proposed Principled Replacement
+- **Current Operational Setting:** On testnet, `maxStalenessSeconds` is set to `86400s` (24 hours).
+- **Safety Reasoning:**
+  1. Constant-product automated market makers (`HalfPair.sol`) are deterministic state machines: an idle liquidity pool with zero external trading volume maintains its exact reserve balance ($r_0, r_1$) and pricing ratio identically over time. The pool's state does not drift or decay without an on-chain event.
+  2. Crucially, fund safety does NOT rely solely on Reactive Lasna's staleness parameter. The destination `HalfwayExecutor.sol` independently validates the local pool's live state in the execution transaction itself. It enforces `minAmountOut` derived from exact slippage parameters (`maxSlippageBps`); if the destination price moved against the trade, the callback safely reverts with `LegSkipped(opportunityId, "SLIPPAGE_EXCEEDED")`.
+- **Proposed Principled Replacement (for production mainnet):**
+  1. **Heartbeat / Touch Automation:** Rather than an arbitrary time ceiling, deploy a lightweight Reactive cron or keeper that emits a 0-value synchronization ping (`sync()` on the pair) whenever a pool has seen no trades for $> 600\text{s}$, verifying that RPC and sequencer connections are alive.
+  2. **Cross-Chain Oracle Guard:** Introduce a maximum deviation check against a canonical decentralized oracle feed (e.g., Chainlink or Pyth cross-chain benchmark) on Lasna, so that an idle pool is only declared stale if the off-chain reference price has drifted more than $k$ bps from the pool's last known on-chain reserve ratio.
+  3. **Dynamic Volatility Window:** Scale `maxStalenessSeconds` inversely with market volatility: tighter windows (e.g., 60s) during high volatility periods and wider windows (e.g., 1800s) during quiet periods.
+
+
 ---
 
 ## 2. Static Analysis & Linter Findings

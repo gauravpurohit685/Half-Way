@@ -24,3 +24,29 @@ This document tracks questions, architectural alternatives, and user decisions r
 3. **Hosting Preference for Indexer & Frontend:**
    - Next.js frontend + Indexer (Ponder / fast polling indexer with SQLite).
    - Local production build + static/Vercel/Railway export readiness.
+
+---
+
+## Phase 4 Question: Frontend & Indexer Production Hosting Recommendation
+
+To ensure DoraHacks judges can open a live public URL and inspect live prices, SSE streams, and real recorded runs:
+
+### Option 1: Railway (Recommended)
+- **Architecture:** 2 services in one Railway project:
+  1. `services/indexer`: Docker service with a persistent volume mounted at `/app/data` (storing `halfway.db`). Always-on background process with health check.
+  2. `apps/web`: Next.js web application connecting to indexer API via internal private network (`http://indexer.railway.internal:3001`) or public URL.
+- **Pros:** Always-on process supports uninterrupted SSE live streaming; SQLite persistence is rock-solid on persistent volume; zero serverless connection dropouts; single dashboard.
+- **Trade-offs:** Consumes ~$5-7/month or Railway free credit.
+
+### Option 2: Vercel (Frontend) + Fly.io (Indexer)
+- **Architecture:** Next.js hosted on Vercel; indexer container deployed to Fly.io with a 1GB persistent NVMe volume for SQLite.
+- **Pros:** Vercel edge CDN delivers ultra-fast UI load for global judges; Fly.io provides persistent micro-VM with low latency.
+- **Trade-offs:** Managing two platforms; requires configuring CORS between Vercel domain and Fly.io API domain.
+
+### Option 3: Single VPS with Docker Compose (Hetzner / DigitalOcean)
+- **Architecture:** Single Ubuntu instance running Docker Compose (`caddy` reverse proxy + `web` + `indexer` + persistent local volume).
+- **Pros:** 100% parity with local development; Caddy manages automatic SSL; zero third-party platform quirks.
+- **Trade-offs:** Requires server provisioning and manual DNS setup.
+
+**Recommendation:** **Option 1 (Railway)** for the live demo deployment because of its native support for persistent volume SQLite and long-lived SSE connections. Meanwhile, we provide Dockerfiles and `docker-compose.yml` so the entire stack can be run locally or on any server with a single command.
+
