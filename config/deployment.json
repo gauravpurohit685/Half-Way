@@ -1,0 +1,27 @@
+{
+  "chains": {
+    "baseSepolia": {
+      "chainId": 84532,
+      "name": "Base Sepolia",
+      "callbackProxy": "0xa6eA49Ed671B8a4dfCDd34E36b7a75Ac79B8A5a6"
+    },
+    "unichainSepolia": {
+      "chainId": 1301,
+      "name": "Unichain Sepolia",
+      "callbackProxy": "0x9299472A6399Fd1027ebF067571Eb3e3D7837FC4"
+    },
+    "reactiveLasna": {
+      "chainId": 5318007,
+      "name": "Reactive Lasna",
+      "systemContract": "0x8888888888888888888888888888888888888888"
+    }
+  },
+  "strategy": {
+    "thresholdBps": 50,
+    "safetyMarginBps": 10,
+    "maxTradeSize": "5000000000000000",
+    "cooldownSeconds": 5,
+    "maxStalenessSeconds": 60,
+    "poolFeeBps": 30
+  }
+}

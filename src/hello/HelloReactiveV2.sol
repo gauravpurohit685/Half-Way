@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
-import { AbstractReactive } from "@reactive-lib-omni/base/AbstractReactive.sol";
-import { ISystemContract } from "@reactive-lib-omni/interfaces/ISystemContract.sol";
+import {AbstractReactive} from "@reactive-lib-omni/base/AbstractReactive.sol";
+import {ISystemContract} from "@reactive-lib-omni/interfaces/ISystemContract.sol";
 
 /**
  * @title HelloReactiveV2
@@ -10,10 +10,7 @@ import { ISystemContract } from "@reactive-lib-omni/interfaces/ISystemContract.s
  */
 contract HelloReactiveV2 is AbstractReactive {
     event HelloReacted(
-        uint256 indexed chainId,
-        address indexed originContract,
-        uint256 indexed pingId,
-        uint256 originBlock
+        uint256 indexed chainId, address indexed originContract, uint256 indexed pingId, uint256 originBlock
     );
 
     uint64 public constant CALLBACK_GAS_LIMIT = 300000;
@@ -49,12 +46,7 @@ contract HelloReactiveV2 is AbstractReactive {
         PING_TOPIC_0 = pingTopic0_;
 
         SYSTEM.subscribe(
-            originChainId_,
-            originContract_,
-            pingTopic0_,
-            REACTIVE_IGNORE,
-            REACTIVE_IGNORE,
-            REACTIVE_IGNORE
+            originChainId_, originContract_, pingTopic0_, REACTIVE_IGNORE, REACTIVE_IGNORE, REACTIVE_IGNORE
         );
     }
 
@@ -74,18 +66,11 @@ contract HelloReactiveV2 is AbstractReactive {
         emit HelloReacted(log_.chainId, log_.contractAddress, pingId, log_.blockNumber);
 
         if (destinationContract != address(0) && destChainId != 0) {
-            bytes memory payload = abi.encodeWithSignature(
-                "callback(address,uint256,uint256)",
-                address(0),
-                pingId,
-                log_.blockNumber
-            );
+            bytes memory payload =
+                abi.encodeWithSignature("callback(address,uint256,uint256)", address(0), pingId, log_.blockNumber);
 
             ISystemContract.CallbackConfiguration_V_1_0 memory config = ISystemContract.CallbackConfiguration_V_1_0({
-                chainId: destChainId,
-                recipient: destinationContract,
-                gasLimit: CALLBACK_GAS_LIMIT,
-                payload: payload
+                chainId: destChainId, recipient: destinationContract, gasLimit: CALLBACK_GAS_LIMIT, payload: payload
             });
 
             SYSTEM.requestCallbackV_1_0(config);
